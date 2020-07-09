@@ -11,6 +11,7 @@ int main ()
    vector<unsigned> topology({2, 2,1});
    vector<string> activation_functions({"tanh", "tanh", "tanh"});
    NeuralNetworkParameters netParams(topology, activation_functions, "mse");
+   netParams.batchs_for_avg_error = 1;
 
    NeuralNetwork net(netParams);
 
@@ -23,7 +24,7 @@ int main ()
    cout << "input cycles and learning rate: ";
    cin >> times >> learning_rate;
 
-   NeuralTrainer::basicTraining(net, input, target, times, learning_rate, true);
+   NeuralTrainer::basicTraining(net, input, target, times, learning_rate, true, true);
 
    net.draw();
 

@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include "Sigmoid.hh"
 #include "Tanh.hh"
+#include "Linear.hh"
+#include "ReLu.hh"
 
 class Neuron;
 

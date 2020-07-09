@@ -113,6 +113,8 @@ ActivationFunction* Neuron::initActFunc (std::string act_func_name)
 {
    if (act_func_name == "sigmoid")  return Sigmoid::getInstance();
    else if (act_func_name == "tanh")  return Tanh::getInstance();
+   else if (act_func_name == "linear")  return Linear::getInstance();
+   else if (act_func_name == "relu")  return ReLu::getInstance();
    else  throw ActivationFunctionNotFound();
 
    return NULL;
