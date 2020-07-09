@@ -31,4 +31,4 @@ clean:
 	rm *.o
 
 clean_all:
-	rm *.o main.exe
+	rm *.o net
