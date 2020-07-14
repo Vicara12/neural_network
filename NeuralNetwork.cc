@@ -3,18 +3,26 @@
 NeuralNetworkParameters::NeuralNetworkParameters(
                            std::vector<unsigned int> nn_topology,
                            std::vector<std::string> nn_activation_functions,
-                           std::string nn_cost_function)
+                           std::string nn_cost_function,
+                           bool nn_normalize_output)
                            : topology(nn_topology),
                              activation_functions(nn_activation_functions),
                              cost_function(nn_cost_function),
-                             weight_max(1),
+                             normalize_output(nn_normalize_output),
+                             weight_max(0.05),
                              bias_initial_value(1),
                              batchs_for_avg_error(100) {}
 
-NeuralNetwork::NeuralNetwork (const NeuralNetworkParameters& netData)
+NeuralNetwork::NeuralNetwork (const NeuralNetworkParameters& netData) :
+         total_error(0),
+         batchs_for_avg_error(netData.batchs_for_avg_error),
+         normalize_output(netData.normalize_output)
 {
    if (netData.topology.size() < 2)
       throw InvalidTopology();
+   
+   if (netData.topology.size() != netData.activation_functions.size())
+      throw InvalidActFuncVector();
 
    for (auto layer_size : netData.topology)
       if (layer_size < 1)
@@ -25,8 +33,6 @@ NeuralNetwork::NeuralNetwork (const NeuralNetworkParameters& netData)
 
    layer = std::vector<Layer>(netData.topology.size());
    cost_function = initCostFunction(netData.cost_function);
-   total_error = 0;
-   batchs_for_avg_error = netData.batchs_for_avg_error;
 
    srand(time(NULL));
 
@@ -59,6 +65,9 @@ NeuralNetwork::NeuralNetwork (std::string filePath)
    if (not file)
       throw ErrorOpeningNeuralNetwork();
    
+   if (not (file >> normalize_output))
+      throw ErrorLoadingNeuralNetwork();
+
    if (not (file >> batchs_for_avg_error))
       throw ErrorLoadingNeuralNetwork();
    
@@ -139,6 +148,7 @@ void NeuralNetwork::saveToFile (std::string filePath) const
    if (not file)
       throw ErrorSavingNeuralNetwork();
    
+   file << normalize_output << std::endl;
    file << batchs_for_avg_error << std::endl;
    file << cost_function->getName() << std::endl;
    
@@ -193,8 +203,24 @@ void NeuralNetwork::getOutput (std::vector<double>& result)
    if (result.size() != qtyOutputs())
       throw InvalidOutputSize();
    
-   for (int i = 0; i < qtyOutputs(); i++)
-      result[i] = layer.back()[i].getOutput();
+   if (normalize_output)
+   {
+      double output_sum = 0;
+
+      for (auto neuron : layer.back())
+         output_sum += neuron.getOutput();
+      
+      output_sum -= layer.back().back().getOutput();
+      
+      double default_output = 1.0/(layer.back().size() - 1);
+      
+      for (int i = 0; i < qtyOutputs(); i++)
+         result[i] = output_sum != 0 ? layer.back()[i].getOutput()/output_sum :
+                                       default_output;
+   }
+   else
+      for (int i = 0; i < qtyOutputs(); i++)
+         result[i] = layer.back()[i].getOutput();
 }
 
 double NeuralNetwork::error (const std::vector<double>& input,
@@ -249,7 +275,9 @@ void NeuralNetwork::changeBatchsForAVGError (unsigned qty)
 
 double NeuralNetwork::backPropagate (const std::vector<double>& input,
                                      const std::vector<double>& target,
-                                     double learning_rate)
+                                     double learning_rate,
+                                     double inertia,
+                                     bool train_bias)
 {
    this->compute(input);
 
@@ -259,20 +287,24 @@ double NeuralNetwork::backPropagate (const std::vector<double>& input,
 
    // calculate the gradients in the entire network
    for (int l = layer.size() - 2; l >= 1; l--)
-      for (int n = 0; n < layer[l].size() - 1; n++)
+      for (int n = 0; n < layer[l].size() - not train_bias; n++)
          layer[l][n].calculateGradient(layer[l+1]);
 
    // calc the gradient of the bias at the input layer
-   //layer.front()[layer.front().size()-1].calculateGradient(layer[1]);
+   if (train_bias)
+      layer.front()[layer.front().size()-1].calculateGradient(layer[1]);
 
    // update weights in the entire network
    for (int l = layer.size() - 1; l >= 1; l--)
-      for (int n = 0; n < layer[l].size() - 1; n++)
-         layer[l][n].actualize(layer[l-1], learning_rate);
+      for (int n = 0; n < layer[l].size() - not train_bias; n++)
+         layer[l][n].actualize(layer[l-1], learning_rate, inertia);
    
    // calc the gradient of the bias at the input layer
-   //layer.front()[layer.front().size()-1].actualize(layer[0], learning_rate);
-
+   if (train_bias)
+      layer.front()[layer.front().size()-1].actualize(layer[0],
+                                                      learning_rate,
+                                                      inertia);
+   
    return avg_err;
 }
 
@@ -285,6 +317,8 @@ void NeuralNetwork::draw () const
    for (auto l : layer)
       std::cout << " " << l[0].activationFunctionName();
    std::cout << "\ncost function: " << cost_function->getName();
+   std::cout << "\nnormalized output: ";
+   normalize_output ? std::cout << "yes" : std::cout << "no";
    std::cout << "\nweights:";
 
    for (int l = 0; l < layer.size(); l++)
@@ -311,6 +345,29 @@ void NeuralNetwork::draw () const
    std::cout << std::endl << std::endl;
 }
 
+std::pair<double, double> NeuralNetwork::weightInfo () const
+{
+   double sum = 0, qty = 0, max = -1;
+
+   for (auto l : layer)
+      for (auto n : l)
+      {
+         std::vector<double> weights = n.getWeights();
+
+         for (auto w : weights)
+         {
+            double weight = w < 0 ? -w : w;
+            sum += weight;
+            ++qty;
+
+            if (weight > max)
+               max = weight;
+         }
+      }
+   
+   return std::make_pair(sum/qty, max);
+}
+
 unsigned int NeuralNetwork::qtyInputs () const
 {
    return layer[0].size() - 1;
@@ -323,7 +380,7 @@ unsigned int NeuralNetwork::qtyOutputs () const
 
 CostFunction* NeuralNetwork::initCostFunction (std::string cost_function_name)
 {
-   if (cost_function_name == "mse") return MSE::getInstance();
+   if (cost_function_name == "mse") return new MSE(normalize_output);
    else throw CostFunctionNotFound();
 
    return NULL;

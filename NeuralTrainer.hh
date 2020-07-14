@@ -16,21 +16,33 @@ class NeuralTrainer
 {
 public:
    static double basicTraining (NeuralNetwork& net,
-                                Data input,
-                                Data target,
+                                const Data& input,
+                                const Data& target,
                                 int times,
                                 double learning_rate,
+                                double inertia,
+                                bool train_bias = true,
                                 bool show_progress = false,
-                                bool plot = false);
+                                bool plot = false,
+                                int ini = -1,
+                                int fi = -1);
 
    static std::pair<double, double> normalTraining (NeuralNetwork& net,
-                                                    Data input,
-                                                    Data target,
+                                                    const Data& input,
+                                                    const Data& target,
                                                     int times,
                                                     double learning_rate,
+                                                    double inertia,
                                                     double test_percentage,
+                                                    bool train_bias = true,
                                                     bool show_progress = false,
                                                     bool plot = false);
+
+  static double testClasifier (NeuralNetwork& net,
+                               const Data& input,
+                               const Data& target,
+                               int ini = -1,
+                               int fi = -1);
 
 private:
    NeuralTrainer () {}

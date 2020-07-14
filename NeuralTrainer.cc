@@ -1,18 +1,27 @@
 #include "NeuralTrainer.hh"
 
 double NeuralTrainer::basicTraining (NeuralNetwork& net,
-                                     Data input,
-                                     Data target,
+                                     const Data& input,
+                                     const Data& target,
                                      int times,
                                      double learning_rate,
+                                     double inertia,
+                                     bool train_bias,
                                      bool show_progress,
-                                     bool plot)
+                                     bool plot,
+                                     int ini,
+                                     int fi)
 {
    if (input.size() != target.size())
       throw InputAndOutputSizesDoNotMAtch();
    
    if (times < 1)
       throw InvalidTimes();
+   
+   if (ini < 0)
+      ini = 0;
+   if (fi == -1)
+      fi = input.size();
 
    net.clearAvgError();
    double error = 1;
@@ -30,8 +39,13 @@ double NeuralTrainer::basicTraining (NeuralNetwork& net,
          std::cout << " -  error: " << error << std::endl;
       }
 
-      int batch = rand() % input.size();
-      error = net.backPropagate(input[batch], target[batch], learning_rate);
+      int batch = (rand() % (fi - ini))+ini;
+
+      error = net.backPropagate(input[batch],
+                                target[batch],
+                                learning_rate,
+                                inertia,
+                                train_bias);
 
       if (plot)
          error_list.push_back(error);
@@ -44,11 +58,13 @@ double NeuralTrainer::basicTraining (NeuralNetwork& net,
 }
 
 std::pair<double, double> NeuralTrainer::normalTraining (NeuralNetwork& net,
-                                                         Data input,
-                                                         Data target,
+                                                         const Data& input,
+                                                         const Data& target,
                                                          int times,
                                                          double learning_rate,
+                                                         double inertia,
                                                          double test_percentage,
+                                                         bool train_bias,
                                                          bool show_progress,
                                                          bool plot)
 {
@@ -81,7 +97,11 @@ std::pair<double, double> NeuralTrainer::normalTraining (NeuralNetwork& net,
 
       int item = rand() % qty_training_samples;
 
-      error.first = net.backPropagate(input[item], target[item], learning_rate);
+      error.first = net.backPropagate(input[item],
+                                      target[item],
+                                      learning_rate,
+                                      inertia,
+                                      train_bias);
 
       if (plot)
          error_list.push_back(error.first);
@@ -100,6 +120,41 @@ std::pair<double, double> NeuralTrainer::normalTraining (NeuralNetwork& net,
       plotError(error_list);
 
    return std::make_pair(0,0);
+}
+
+double NeuralTrainer::testClasifier (NeuralNetwork& net,
+                                     const Data& input,
+                                     const Data& target,
+                                     int ini,
+                                     int fi)
+{
+   if (ini < 0)
+      ini = 0;
+   if (fi == -1)
+      fi = input.size();
+
+   int correct = 0;
+   for (int i = ini; i < fi; i++)
+   {
+      std::vector<double> output(target.front().size());
+      net.compute(input[i]);
+      net.getOutput(output);
+
+      int max_pos = 0;
+      double max_val = output.front();
+
+      for (int j = 1; j < output.size(); j++)
+         if (output[j] > max_val)
+         {
+            max_pos = j;
+            max_val = target[i][j];
+         }
+      
+      if (target[i][max_pos] == 1)
+         correct++;
+   }
+
+   return double(correct)/(fi - ini);
 }
 
 void NeuralTrainer::plotError (const std::list<double>& error_list)

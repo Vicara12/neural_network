@@ -15,13 +15,15 @@ struct NeuralNetworkParameters
    std::vector<unsigned int> topology;
    std::vector<std::string> activation_functions;
    std::string cost_function;
+   bool normalize_output;
    double weight_max;
    double bias_initial_value;
    double batchs_for_avg_error;
 
    NeuralNetworkParameters(std::vector<unsigned int> nn_topology,
                            std::vector<std::string> nn_activation_functions,
-                           std::string nn_cost_function);
+                           std::string nn_cost_function,
+                           bool nn_normalize_output);
 };
 
 
@@ -40,9 +42,12 @@ public:
    void changeBatchsForAVGError (unsigned qty);
    double backPropagate (const std::vector<double>& input,
                          const std::vector<double>& target,
-                         double learning_rate);
+                         double learning_rate,
+                         double inertia,
+                         bool train_bias);
    void saveToFile (std::string filePath) const;
    void draw () const;
+   std::pair<double, double> weightInfo () const;
    unsigned int qtyInputs () const;
    unsigned int qtyOutputs () const;
 
@@ -55,6 +60,7 @@ private:
    std::list<double> error_list;
    double total_error;
    int batchs_for_avg_error;
+   bool normalize_output;
 };
 
 /*
@@ -66,6 +72,14 @@ struct InvalidTopology : public std::exception
   const char* what () const throw ()
   {
     return "topology must have more than one strictly positive integer";
+  }
+};
+
+struct InvalidActFuncVector : public std::exception
+{
+  const char* what () const throw ()
+  {
+    return "activation functions vector's size must match the number of layers";
   }
 };
 

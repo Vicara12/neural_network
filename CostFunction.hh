@@ -10,10 +10,13 @@ typedef std::vector<double> vec_double;
 class CostFunction
 {
 public:
-   CostFunction() {}
-   virtual std::string getName () const = 0;
-   virtual double error (const Layer& output, const vec_double& target) const = 0;
-   virtual void dError (Layer& output, const vec_double& target) const = 0;
+  CostFunction(bool normalize_output) : normalized_output(normalize_output) {}
+  virtual std::string getName () const = 0;
+  virtual double error (const Layer& output, const vec_double& target) const = 0;
+  virtual void dError (Layer& output, const vec_double& target) const = 0;
+
+protected:
+   bool normalized_output;
 };
 
 struct InvalidTargetSize : public std::exception

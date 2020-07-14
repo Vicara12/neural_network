@@ -8,6 +8,8 @@ NeuralNetwork.cc NeuralNetwork.hh NeuralTrainer.cc NeuralTrainer.hh Neuron.cc\
 Neuron.hh Sigmoid.cc Sigmoid.hh Tanh.cc Tanh.hh plotter.py Linear.hh Linear.cc\
 ReLu.hh ReLu.cc
 
+NUMBER_RECOG = ./number_recog/*.cc ./number_recog/*.hh ./number_recog/Makefile
+
 all: main.exe
 
 main.exe: main.o NeuralNetwork.o NeuralTrainer.o
@@ -47,7 +49,7 @@ clean_all:
 	rm *.o net
 
 git:
-	git add $(ALL)
+	git add $(ALL) $(NUMBER_RECOG)
 
 lines:
 	wc $(ALL) | tail -1
